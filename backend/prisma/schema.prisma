@@ -1,0 +1,144 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  CHAIRMAN
+  TREASURER
+  AUDITOR
+  MEMBER
+  ADMIN
+}
+
+enum TransactionType {
+  DEPOSIT
+  WITHDRAWAL
+  TRANSFER
+  FEE
+}
+
+enum BankProvider {
+  MPESA
+  EQUITY
+  KCB
+  COOP
+  OTHER
+}
+
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  password      String
+  role          Role     @default(MEMBER)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  member        Member?
+  auditLogs     AuditLog[]
+  notifications Notification[]
+}
+
+model Member {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  firstName       String
+  lastName        String
+  phoneNumber     String   @unique
+  nationalId      String?  @unique
+  joinedDate      DateTime @default(now())
+  isActive        Boolean  @default(true)
+  balance         Float    @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions    Transaction[]
+  statements      Statement[]
+}
+
+model Transaction {
+  id              String          @id @default(uuid())
+  memberId        String
+  type            TransactionType
+  amount          Float
+  balance         Float
+  description     String
+  bankProvider    BankProvider
+  reference       String          @unique
+  smsContent      String?
+  transactionDate DateTime
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  
+  member          Member          @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  
+  @@index([memberId])
+  @@index([transactionDate])
+  @@index([reference])
+}
+
+model Statement {
+  id              String   @id @default(uuid())
+  memberId        String
+  month           Int
+  year            Int
+  startDate       DateTime
+  endDate         DateTime
+  openingBalance  Float
+  closingBalance  Float
+  totalDeposits   Float
+  totalWithdrawals Float
+  pdfUrl          String?
+  generatedAt     DateTime @default(now())
+  sentAt          DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  member          Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  
+  @@unique([memberId, month, year])
+  @@index([memberId])
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  userId      String
+  action      String
+  entity      String
+  entityId    String
+  changes     String?
+  ipAddress   String?
+  timestamp   DateTime @default(now())
+  
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([timestamp])
+}
+
+model Notification {
+  id          String   @id @default(uuid())
+  userId      String
+  title       String
+  message     String
+  type        String   @default("INFO")
+  isRead      Boolean  @default(false)
+  link        String?
+  createdAt   DateTime @default(now())
+  
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([createdAt])
+}
